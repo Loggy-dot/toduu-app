@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign Up - ToDuu</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="container">
+      <div class="logo">
+        <i class="fas fa-check-square"></i>
+        <span>ToDuu</span>
+      </div>
+      <ul class="nav-links">
+        <li><a href="index.html"><i class="fas fa-home"></i> Home</a></li>
+        <li><a href="dashboard.html"><i class="fas fa-tasks"></i> My Tasks</a></li>
+      </ul>
+      <div class="auth-buttons">
+        <a href="login.html" class="btn btn-ghost">Sign In</a>
+        <a href="signup.html" class="btn btn-primary active">Sign Up</a>
+      </div>
+    </div>
+  </nav>
+
+
+  <main>
+    <div class="auth-container">
+      <div class="auth-card">
+        <div class="auth-header">
+          <div class="auth-icon">
+            <i class="fas fa-check-square"></i>
+          </div>
+          <h2>Create Account</h2>
+          <p>Join ToDuu and start organizing your tasks today</p>
+        </div>
+
+        <div class="auth-content">
+          <form id="signupForm" class="auth-form">
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="firstName">First Name</label>
+                <input type="text" id="firstName" placeholder="Khay" required>
+              </div>
+
+              <div class="form-group">
+                <label for="lastName">Last Name</label>
+                <input type="text" id="lastName" placeholder="Hope" required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="email">Email</label>
+              <input type="email" id="email" placeholder="khay@example.com" required>
+            </div>
+
+            <div class="form-group">
+              <label for="password">Password</label>
+              <div class="password-input">
+                <input type="password" id="password" placeholder="Create a strong password" required>
+                <button type="button" class="password-toggle" onclick="togglePassword('password')">
+                  <i class="fas fa-eye"></i>
+                </button>
+              </div>
+            </div>
+
+
+            <div class="form-group">
+              <label for="confirmPassword">Confirm Password</label>
+              <div class="password-input">
+                <input type="password" id="confirmPassword" placeholder="Confirm your password" required>
+                <button type="button" class="password-toggle" onclick="togglePassword('confirmPassword')">
+                  <i class="fas fa-eye"></i>
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block" id="signupButton">Create Account</button>
+          </form>
+          <div class="auth-footer">
+            <p>Already have an account? <a href="login.html">Sign in</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+
+  <script src="script.js"></script>
+  <script src="api.js"></script>
+  <script>
+    document.getElementById('signupForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const signupButton = document.getElementById('signupButton');
+      const firstName = document.getElementById('firstName').value;
+      const lastName = document.getElementById('lastName').value;
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      
+      // Clear any previous error messages
+      const errorElements = document.querySelectorAll('.error-message');
+      errorElements.forEach(el => el.remove());
+      
+      // Validate passwords match
+      if (password !== confirmPassword) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.textContent = 'Passwords do not match.';
+        errorDiv.style.cssText = `
+          color: #ff4757;
+          background: #ffe0e0;
+          padding: 10px;
+          border-radius: 4px;
+          margin-bottom: 15px;
+          border: 1px solid #ffcdd2;
+        `;
+        
+        const form = document.getElementById('signupForm');
+        form.parentNode.insertBefore(errorDiv, form);
+        return;
+      }
+      
+      signupButton.textContent = 'Creating Account...';
+      signupButton.disabled = true;
+      
+      try {
+        const username = `${firstName} ${lastName}`.trim();
+        const response = await api.register({ 
+          username, 
+          email, 
+          password 
+        });
+        
+        showSuccess('Account created successfully!');
+        
+        setTimeout(() => {
+          window.location.href = 'dashboard.html';
+        }, 1000);
+        
+      } catch (error) {
+        console.error('Registration failed:', error);
+        
+        // Create error message element
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.textContent = error.message || 'Registration failed. Please try again.';
+        errorDiv.style.cssText = `
+          color: #ff4757;
+          background: #ffe0e0;
+          padding: 10px;
+          border-radius: 4px;
+          margin-bottom: 15px;
+          border: 1px solid #ffcdd2;
+        `;
+        
+        // Insert error message before the form
+        const form = document.getElementById('signupForm');
+        form.parentNode.insertBefore(errorDiv, form);
+        
+        signupButton.textContent = 'Create Account';
+        signupButton.disabled = false;
+      }
+    });
+    
+    function togglePassword(inputId) {
+      const input = document.getElementById(inputId);
+      const icon = input.nextElementSibling.querySelector('i');
+      
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+      } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+      }
+    }
+  </script>
+</body>
+</html>

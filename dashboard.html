@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>
+  if (!localStorage.getItem('isLoggedIn')) {
+    window.location.href = 'login.html';
+  }
+</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Tasks - ToDuu</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+
+  <nav class="navbar">
+    <div class="container">
+      <div class="logo">
+        <i class="fas fa-check-square"></i>
+        <span>ToDuu</span>
+      </div>
+      <ul class="nav-links">
+        <li><a href="index.html"><i class="fas fa-home"></i> Home</a></li>
+        <li><a href="dashboard.html" class="active"><i class="fas fa-tasks"></i> My Tasks</a></li>
+      </ul>
+      <div class="auth-buttons">
+        <a href="login.html" class="btn btn-ghost">Sign In</a>
+        <a href="signup.html" class="btn btn-primary">Sign Up</a>
+        <button onclick="logout()" class="btn btn-ghost">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+
+  
+  <main>
+    <div class="dashboard-container">
+      <div class="dashboard-header">
+        <h1>My Tasks</h1>
+        <p>Stay organized and get things done</p>
+      </div>
+
+      <div class="todo-card">
+        <div class="todo-header">
+          <h2>To Do List</h2>
+        </div>
+        <div class="todo-content">
+
+
+          <div class="todo-add">
+
+
+            <input type="date" id="newTodoDue"> 
+
+            <select id="newTodoPriority">
+              <option value="Low">Low</option>
+              <option value="Medium">Medium</option>
+              <option value="High">High</option>
+            </select>
+
+
+            <input type="text" id="newTodo" placeholder="Add a new task...">
+            <button id="addTodoBtn" class="btn btn-dark">
+              <i class="fas fa-plus"></i> Add
+            </button>
+          </div>
+
+          <div class="todo-filters">
+            <button onclick="setFilter('all')" class="active">All</button>
+            <button onclick="setFilter('active')">Active</button>
+            <button onclick="setFilter('completed')">Completed</button>
+          </div>
+
+          <div class="todo-list" id="todoList">
+           
+          </div>
+          <button onclick="clearCompleted()" class="btn btn-outline">Clear Completed</button>
+
+          <div class="todo-stats" id="todoStats">
+          
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+re  <script src="script.js"></script>
+  <script src="api.js"></script>
+  <script>
+    let todos = [];
+    let editingId = null;
+    let currentFilter = 'all';
+
+    const todoList = document.getElementById('todoList');
+    const todoStats = document.getElementById('todoStats');
+    const newTodoInput = document.getElementById('newTodo');
+    const addTodoBtn = document.getElementById('addTodoBtn');
+
+    // Initialize dashboard
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Check authentication
+      if (!api.isAuthenticated()) {
+        window.location.href = 'login.html';
+        return;
+      }
+
+      // Display current user info
+      try {
+        const user = api.getCurrentUser();
+        if (user) {
+          // You can display user info in the header if needed
+          console.log('Welcome,', user.username);
+        }
+      } catch (error) {
+        console.error('Error getting user info:', error);
+      }
+
+      // Load todos
+      await loadTodos();
+      
+      // Set up event listeners
+      addTodoBtn.addEventListener('click', addTodo);
+      newTodoInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') addTodo();
+      });
+    });
+
+    async function loadTodos() {
+      try {
+        todos = await api.getTodos(currentFilter);
+        renderTodos();
+        updateStats();
+      } catch (error) {
+        console.error('Error loading todos:', error);
+        showError('Failed to load todos');
+      }
+    }
+
+    function renderTodos() {
+      todoList.innerHTML = '';
+
+      if (todos.length === 0) {
+        todoList.innerHTML = '<div class="empty-state">No tasks yet. Add one above to get started!</div>';
+        return;
+      }
+      
+      todos.forEach(todo => {
+        const todoItem = document.createElement('div');
+        todoItem.className = 'todo-item';
+        
+        if (editingId === todo.id) {
+          todoItem.innerHTML = `
+            <div class="todo-edit">
+              <input type="text" id="editTodo-${todo.id}" value="${todo.text}" class="edit-input">
+              <div class="edit-buttons">
+                <button onclick="saveEdit(${todo.id})" class="btn btn-sm">Save</button>
+                <button onclick="cancelEdit()" class="btn btn-outline btn-sm">Cancel</button>
+              </div>
+            </div>
+          `;
+        } else {
+          todoItem.innerHTML = `
+            <div class="todo-checkbox">
+              <input type="checkbox" id="todo-${todo.id}" ${todo.completed ? 'checked' : ''}>
+              <label for="todo-${todo.id}"></label>
+            </div>
+            <span class="todo-text ${todo.completed ? 'completed' : ''}">${todo.text}</span>
+            <span class="todo-due">${todo.due_date ? 'Due: ' + todo.due_date : ''}</span>
+            <span class="todo-priority">${todo.priority || ''}</span>
+            <div class="todo-actions">
+              <button onclick="startEdit(${todo.id}, '${todo.text.replace(/'/g, "\\'")}')" class="btn-icon">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button onclick="deleteTodo(${todo.id})" class="btn-icon delete">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          `;
+          
+          setTimeout(() => {
+            const checkbox = document.getElementById(`todo-${todo.id}`);
+            if (checkbox) {
+              checkbox.addEventListener('change', () => toggleTodo(todo.id));
+            }
+          }, 0);
+        }
+        
+        todoList.appendChild(todoItem);
+      });
+    }
+
+    async function updateStats() {
+      try {
+        const stats = await api.getTodoStats();
+        if (stats.total === 0) {
+          todoStats.style.display = 'none';
+          return;
+        }
+        
+        todoStats.style.display = 'block';
+        todoStats.textContent = `${stats.completed} of ${stats.total} tasks completed`;
+      } catch (error) {
+        console.error('Error updating stats:', error);
+      }
+    }
+
+    async function addTodo() {
+      const text = newTodoInput.value.trim();
+      const due_date = document.getElementById('newTodoDue').value;
+      const priority = document.getElementById('newTodoPriority').value;
+
+      if (!text) return;
+
+      try {
+        const newTodo = await api.createTodo({
+          text: text,
+          due_date: due_date || null,
+          priority: priority
+        });
+        
+        newTodoInput.value = '';
+        document.getElementById('newTodoDue').value = '';
+        document.getElementById('newTodoPriority').value = 'Medium';
+        
+        await loadTodos();
+        showSuccess('Todo added successfully!');
+      } catch (error) {
+        console.error('Error adding todo:', error);
+        showError('Failed to add todo');
+      }
+    }
+
+    async function deleteTodo(id) {
+      if (!confirm('Are you sure you want to delete this todo?')) return;
+
+      try {
+        await api.deleteTodo(id);
+        await loadTodos();
+        showSuccess('Todo deleted successfully!');
+      } catch (error) {
+        console.error('Error deleting todo:', error);
+        showError('Failed to delete todo');
+      }
+    }
+
+    async function toggleTodo(id) {
+      const todo = todos.find(t => t.id === id);
+      if (!todo) return;
+
+      try {
+        await api.updateTodo(id, { completed: !todo.completed });
+        await loadTodos();
+      } catch (error) {
+        console.error('Error updating todo:', error);
+        showError('Failed to update todo');
+      }
+    }
+
+    function startEdit(id, text) {
+      editingId = id;
+      renderTodos();
+      
+      setTimeout(() => {
+        const editInput = document.getElementById(`editTodo-${id}`);
+        if (editInput) {
+          editInput.focus();
+          editInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') saveEdit(id);
+            if (e.key === 'Escape') cancelEdit();
+          });
+        }
+      }, 0);
+    }
+
+    async function saveEdit(id) {
+      const editInput = document.getElementById(`editTodo-${id}`);
+      const newText = editInput.value.trim();
+      
+      if (!newText) return;
+
+      try {
+        await api.updateTodo(id, { text: newText });
+        editingId = null;
+        await loadTodos();
+        showSuccess('Todo updated successfully!');
+      } catch (error) {
+        console.error('Error updating todo:', error);
+        showError('Failed to update todo');
+        editingId = null;
+        renderTodos();
+      }
+    }
+
+    function cancelEdit() {
+      editingId = null;
+      renderTodos();
+    }
+
+    async function setFilter(filter) {
+      currentFilter = filter;
+      
+      // Update filter button styles
+      document.querySelectorAll('.todo-filters button').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      event.target.classList.add('active');
+      
+      await loadTodos();
+    }
+
+    async function clearCompleted() {
+      if (!confirm('Are you sure you want to clear all completed todos?')) return;
+
+      try {
+        await api.clearCompletedTodos();
+        await loadTodos();
+        showSuccess('Completed todos cleared!');
+      } catch (error) {
+        console.error('Error clearing completed todos:', error);
+        showError('Failed to clear completed todos');
+      }
+    }
+
+    function logout() {
+      api.logout();
+    }
+  </script>
+</body>
+</html>

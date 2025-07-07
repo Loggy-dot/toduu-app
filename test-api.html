@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Test - ToDuu</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>ToDuu API Test</h1>
+    
+    <div class="test-section">
+        <h3>1. Test User Registration</h3>
+        <button onclick="testRegister()">Test Register</button>
+        <div id="register-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. Test User Login</h3>
+        <button onclick="testLogin()">Test Login</button>
+        <div id="login-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. Test Get Current User</h3>
+        <button onclick="testGetUser()">Test Get User</button>
+        <div id="user-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>4. Test Create Todo</h3>
+        <button onclick="testCreateTodo()">Test Create Todo</button>
+        <div id="create-todo-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>5. Test Get Todos</h3>
+        <button onclick="testGetTodos()">Test Get Todos</button>
+        <div id="get-todos-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>6. Test Update Todo</h3>
+        <button onclick="testUpdateTodo()">Test Update Todo</button>
+        <div id="update-todo-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>7. Test Delete Todo</h3>
+        <button onclick="testDeleteTodo()">Test Delete Todo</button>
+        <div id="delete-todo-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>8. Clear All Data</h3>
+        <button onclick="clearData()">Clear Local Storage</button>
+    </div>
+
+    <script src="api.js"></script>
+    <script>
+        let testTodoId = null;
+        const testUser = {
+            username: 'Test User',
+            email: 'test@example.com',
+            password: 'testpassword123'
+        };
+
+        function displayResult(elementId, success, message, data = null) {
+            const element = document.getElementById(elementId);
+            element.className = success ? 'success' : 'error';
+            element.innerHTML = `
+                <p><strong>${success ? 'SUCCESS' : 'ERROR'}:</strong> ${message}</p>
+                ${data ? `<pre>${JSON.stringify(data, null, 2)}</pre>` : ''}
+            `;
+        }
+
+        async function testRegister() {
+            try {
+                const response = await api.register(testUser);
+                displayResult('register-result', true, 'User registered successfully', response);
+            } catch (error) {
+                displayResult('register-result', false, error.message);
+            }
+        }
+
+        async function testLogin() {
+            try {
+                const response = await api.login({
+                    email: testUser.email,
+                    password: testUser.password
+                });
+                displayResult('login-result', true, 'User logged in successfully', response);
+            } catch (error) {
+                displayResult('login-result', false, error.message);
+            }
+        }
+
+        async function testGetUser() {
+            try {
+                const response = await api.getCurrentUserInfo();
+                displayResult('user-result', true, 'User info retrieved successfully', response);
+            } catch (error) {
+                displayResult('user-result', false, error.message);
+            }
+        }
+
+        async function testCreateTodo() {
+            try {
+                const todoData = {
+                    text: 'Test Todo Item',
+                    priority: 'High',
+                    due_date: '2024-12-31'
+                };
+                const response = await api.createTodo(todoData);
+                testTodoId = response.id; // Store for later tests
+                displayResult('create-todo-result', true, 'Todo created successfully', response);
+            } catch (error) {
+                displayResult('create-todo-result', false, error.message);
+            }
+        }
+
+        async function testGetTodos() {
+            try {
+                const response = await api.getTodos();
+                displayResult('get-todos-result', true, `Retrieved ${response.length} todos`, response);
+            } catch (error) {
+                displayResult('get-todos-result', false, error.message);
+            }
+        }
+
+        async function testUpdateTodo() {
+            if (!testTodoId) {
+                displayResult('update-todo-result', false, 'No todo ID available. Create a todo first.');
+                return;
+            }
+
+            try {
+                const updateData = {
+                    text: 'Updated Test Todo Item',
+                    completed: true
+                };
+                const response = await api.updateTodo(testTodoId, updateData);
+                displayResult('update-todo-result', true, 'Todo updated successfully', response);
+            } catch (error) {
+                displayResult('update-todo-result', false, error.message);
+            }
+        }
+
+        async function testDeleteTodo() {
+            if (!testTodoId) {
+                displayResult('delete-todo-result', false, 'No todo ID available. Create a todo first.');
+                return;
+            }
+
+            try {
+                const response = await api.deleteTodo(testTodoId);
+                displayResult('delete-todo-result', true, 'Todo deleted successfully', response);
+                testTodoId = null; // Clear the ID
+            } catch (error) {
+                displayResult('delete-todo-result', false, error.message);
+            }
+        }
+
+        function clearData() {
+            localStorage.clear();
+            alert('Local storage cleared!');
+            location.reload();
+        }
+
+        // Check if user is already logged in
+        window.onload = function() {
+            if (api.isAuthenticated()) {
+                const user = api.getCurrentUser();
+                document.body.insertAdjacentHTML('afterbegin', 
+                    `<div class="test-section success">
+                        <p><strong>Already logged in as:</strong> ${user.username} (${user.email})</p>
+                    </div>`
+                );
+            }
+        };
+    </script>
+</body>
+</html>
