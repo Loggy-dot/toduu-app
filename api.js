@@ -1,5 +1,8 @@
 // API Configuration
-const API_BASE_URL = 'http://localhost:3000/api';
+// This will automatically use the correct URL whether running locally or on Render
+const API_BASE_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:3000/api'
+  : `${window.location.protocol}//${window.location.host}/api`;
 
 // API Client Class
 class APIClient {
